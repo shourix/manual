@@ -259,6 +259,8 @@
             const [fileName, setFileName] = useState("");
             const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+            const [printLayout, setPrintLayout] = useState('4per');
+
             const [dragState, setDragState] = useState({ isDragging: false, stepIndex: null, startX: 0, startY: 0, initialImgX: 0, initialImgY: 0 });
             const [splitDragState, setSplitDragState] = useState({ isDragging: false, stepIndex: null, startX: 0, startY: 0, containerWidth: 0, initialRatio: 0.5 });
 
@@ -281,12 +283,28 @@
             useEffect(() => {
                 const handleBeforeUnload = (e) => {
                     if (hasUnsavedChanges && steps.length > 0) {
-                        e.preventDefault(); e.returnValue = ''; 
+                        e.preventDefault(); e.returnValue = '';
                     }
                 };
                 window.addEventListener('beforeunload', handleBeforeUnload);
                 return () => window.removeEventListener('beforeunload', handleBeforeUnload);
             }, [hasUnsavedChanges, steps]);
+
+            // 印刷レイアウト切替: 動的にstyleタグを差し替え
+            useEffect(() => {
+                const id = 'print-layout-style';
+                let el = document.getElementById(id);
+                if (!el) {
+                    el = document.createElement('style');
+                    el.id = id;
+                    document.head.appendChild(el);
+                }
+                if (printLayout === '2per') {
+                    el.textContent = `@media print { .step-item { height: 136mm !important; max-height: 136mm !important; } }`;
+                } else {
+                    el.textContent = `@media print { .step-item { height: 73mm !important; max-height: 73mm !important; } }`;
+                }
+            }, [printLayout]);
 
             // --- 画像ドラッグ ---
             const handleImageMouseDown = (index, e) => {
@@ -921,18 +939,23 @@
                                 </div>
                             </div>
 
-                            <div className="mt-6 p-4 bg-blue-50 rounded-lg text-sm text-blue-800">
-                                <p className="font-bold mb-1">使い方</p>
-                                <ul className="list-decimal list-inside space-y-1 text-xs opacity-80">
-                                    <li>動画を読み込み、再生位置で「キャプチャ」ボタンを押します。</li>
-                                    <li>または「画像を追加」から写真などの画像ファイルを追加します。</li>
-                                    <li>右側に作業項目が追加されます。ステップをクリックして選択します。</li>
-                                    <li>編集ツールで、注釈追加や画像の編集ができます。</li>
-                                    <li>注釈は4種類：矢印、丸、テキストラベル、番号スタンプ</li>
-                                    <li>注釈はドラッグで移動、選択して変形、太さ変更が可能です。</li>
-                                    <li>テキストや番号はダブルクリックで編集できます。</li>
-                                    <li>テキストラベルを選択後、「赤字」ボタンで文字色を赤に変更できます。</li>
-                                </ul>
+                            <div className="mt-6 border-t pt-4 print-hidden">
+                                <h3 className="font-semibold mb-3 text-gray-700">印刷レイアウト</h3>
+                                <div className="flex rounded-lg border border-gray-300 overflow-hidden text-sm font-medium">
+                                    <button
+                                        onClick={() => setPrintLayout('4per')}
+                                        className={`flex-1 py-2 transition-colors ${printLayout === '4per' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                    >
+                                        4段／ページ
+                                    </button>
+                                    <button
+                                        onClick={() => setPrintLayout('2per')}
+                                        className={`flex-1 py-2 transition-colors border-l border-gray-300 ${printLayout === '2per' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                    >
+                                        2段／ページ
+                                    </button>
+                                </div>
+                                <p className="mt-1 text-xs text-gray-400">印刷・PDF出力時に適用されます</p>
                             </div>
                         </div>
 
