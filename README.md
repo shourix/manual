@@ -1,4 +1,4 @@
-jump to https://sk10sk15.github.io/manual/manual.html
+jump to https://shourix.github.io/manual/manual.html
 <br>
 <br>
 # 作業書作成支援ツールV2
