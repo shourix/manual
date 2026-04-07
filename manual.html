@@ -84,33 +84,23 @@
                 page-break-inside: avoid;
                 border: 1px solid #ddd !important;
                 margin: 0 0 1mm 0 !important;
-                padding: 2mm !important;
+                padding: 0 !important;
                 height: 73mm !important;
                 max-height: 73mm !important;
                 overflow: hidden !important;
-                display: flex !important;
-                flex-direction: row !important;
-                gap: 2mm !important;
+                display: block !important;
+                position: relative !important;
                 page-break-after: auto;
                 border-radius: 0 !important;
                 box-shadow: none !important;
                 box-sizing: border-box !important;
             }
 
-            /* 印刷時の画像コンテナ: 55% */
-            .step-item > div:first-child {
-                width: 55% !important;
+            /* 印刷時: 画像コンテナが全面 */
+            .step-image-wrapper {
+                width: 100% !important;
                 height: 100% !important;
-                flex-shrink: 0 !important;
-            }
-
-            /* 印刷時のテキストコンテナ: 43% */
-            .step-text-container {
-                width: 43% !important;
-                height: 100% !important;
-                flex-shrink: 0 !important;
-                padding: 1.5mm !important;
-                box-sizing: border-box !important;
+                position: relative !important;
             }
 
             .step-image-mask {
@@ -124,18 +114,39 @@
                 height: 100% !important;
             }
 
+            /* 印刷時: テキストは画像下部にオーバーレイ */
+            .step-text-overlay {
+                position: absolute !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                background: rgba(255, 220, 0, 0.92) !important;
+                padding: 1.5mm 2mm !important;
+                min-height: 18mm !important;
+                max-height: 35% !important;
+                overflow: hidden !important;
+                box-sizing: border-box !important;
+                display: block !important;
+            }
+
+            /* 印刷時: テキスト編集エリアは非表示 */
+            .step-text-editor-area {
+                display: none !important;
+            }
+
             /* リッチテキストエディタの印刷時スタイル */
             .rich-text-editor {
-                height: 100% !important;
-                overflow: auto !important;
-                border: 1px solid #e5e7eb !important;
-                padding: 2mm !important;
-                padding-right: 3mm !important;
+                background: transparent !important;
+                border: none !important;
                 box-shadow: none !important;
-                box-sizing: border-box !important;
+                padding: 0 !important;
+                font-size: 9pt !important;
+                line-height: 1.4 !important;
+                color: #1a1a1a !important;
                 word-wrap: break-word !important;
                 word-break: break-word !important;
-                line-height: 1.4 !important;
+                height: auto !important;
+                overflow: visible !important;
             }
             
             .lg\:col-span-8 {
@@ -859,6 +870,19 @@
                                 <button onClick={() => jsonInputRef.current?.click()} className="flex items-center gap-1 px-3 py-1.5 bg-white text-gray-700 rounded text-sm hover:bg-gray-50"><Upload className="w-4 h-4" /> 読込</button>
                                 <input type="file" accept=".json" ref={jsonInputRef} className="hidden" onChange={loadData} />
                             </div>
+                            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 text-xs font-medium">
+                                <span className="text-gray-500 px-1">レイアウト:</span>
+                                <button
+                                    onClick={() => setPrintLayout('4per')}
+                                    className={`px-3 py-1.5 rounded transition-colors ${printLayout === '4per' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+                                    title="4段／ページ（小さめ）"
+                                >4段</button>
+                                <button
+                                    onClick={() => setPrintLayout('2per')}
+                                    className={`px-3 py-1.5 rounded transition-colors ${printLayout === '2per' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+                                    title="2段／ページ（大きめ）"
+                                >2段</button>
+                            </div>
                             <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm shadow-md"><Printer className="w-4 h-4" /> 印刷 / PDF</button>
                         </div>
                     </header>
@@ -939,29 +963,12 @@
                                 </div>
                             </div>
 
-                            <div className="mt-6 border-t pt-4 print-hidden">
-                                <h3 className="font-semibold mb-3 text-gray-700">印刷レイアウト</h3>
-                                <div className="flex rounded-lg border border-gray-300 overflow-hidden text-sm font-medium">
-                                    <button
-                                        onClick={() => setPrintLayout('4per')}
-                                        className={`flex-1 py-2 transition-colors ${printLayout === '4per' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                                    >
-                                        4段／ページ
-                                    </button>
-                                    <button
-                                        onClick={() => setPrintLayout('2per')}
-                                        className={`flex-1 py-2 transition-colors border-l border-gray-300 ${printLayout === '2per' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                                    >
-                                        2段／ページ
-                                    </button>
-                                </div>
-                                <p className="mt-1 text-xs text-gray-400">印刷・PDF出力時に適用されます</p>
-                            </div>
+
                         </div>
 
                         <div className="flex-1 bg-gray-200 overflow-y-auto scroll-area custom-scrollbar" ref={scrollAreaRef} onClick={() => setSelectedAnnotation(null)}>
                             {/* A4プレビュー枠を外し、通常のリスト表示に戻す */}
-                            <div className="w-full max-w-5xl mx-auto my-8 p-4 right-content transition-all">
+                            <div className="w-full max-w-2xl mx-auto my-8 p-4 right-content transition-all">
                                 <div className="flex items-center mb-6 pb-2 print-hidden border-b border-gray-300">
                                     <h2 className="font-semibold flex items-center gap-2 text-lg text-gray-700"><FileText className="w-5 h-5 text-indigo-500" /> 作成された作業項目 ({steps.length})</h2>
                                 </div>
@@ -972,11 +979,13 @@
                                     <div className="space-y-6 print:space-y-0 print:block">
                                         {steps.map((step, index) => {
                                             return (
-                                                <div key={step.id} data-step-index={index} className={`group relative flex gap-3 p-3 rounded-xl border transition-all bg-white step-item flex-row step-row ${activeStepIndex === index ? 'border-indigo-500 shadow-lg' : selectedSteps.has(index) ? 'border-blue-400 shadow-md bg-blue-50' : 'border-gray-300 hover:border-indigo-300'}`} onClick={() => setActiveStepIndex(index)}>
-                                                    <div className="flex flex-col" style={{ width: '520px', flexShrink: 0 }}>
-                                                        <div className="flex-shrink-0 step-image-mask relative cursor-move bg-gray-50 border border-gray-200" style={{ overflow: 'hidden', width: '520px', height: '255.13px' }} onMouseDown={(e) => handleImageMouseDown(index, e)}>
+                                                <div key={step.id} data-step-index={index} className={`group relative rounded-xl border transition-all bg-white step-item ${activeStepIndex === index ? 'border-indigo-500 shadow-lg' : selectedSteps.has(index) ? 'border-blue-400 shadow-md bg-blue-50' : 'border-gray-300 hover:border-indigo-300'}`} onClick={() => setActiveStepIndex(index)}>
+
+                                                    {/* 画像全面 + オーバーレイテキスト */}
+                                                    <div className="step-image-wrapper relative" style={{ width: '100%', height: printLayout === '2per' ? '500px' : '280px' }}>
+                                                        <div className="step-image-mask relative cursor-move bg-gray-50" style={{ overflow: 'hidden', width: '100%', height: '100%' }} onMouseDown={(e) => handleImageMouseDown(index, e)}>
                                                             <div className="relative w-full h-full flex items-center justify-center" style={{overflow: 'visible'}}>
-                                                                <img src={step.image} className="max-w-none transition-transform duration-75 ease-out select-none pointer-events-none" style={{ transform: `translate(${step.x || 0}px, ${step.y || 0}px) scale(${step.scale || 1})`, width: '100%' }} draggable="false" />
+                                                                <img src={step.image} className="max-w-none transition-transform duration-75 ease-out select-none pointer-events-none" style={{ transform: `translate(${step.x || 0}px, ${step.y || 0}px) scale(${step.scale || 1})`, width: '100%', height: '100%', objectFit: 'cover' }} draggable="false" />
                                                                 <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded font-mono z-10 pointer-events-none shadow-sm">Step {index + 1}</div>
                                                                 <svg className="absolute w-full h-full pointer-events-none z-20" style={{ pointerEvents: annotationTool || selectedAnnotation ? 'auto' : 'none', overflow: 'hidden', top: 0, left: 0 }} viewBox="0 0 100 100" preserveAspectRatio="none">
                                                                     <defs>
@@ -1148,14 +1157,22 @@
                                                             </div>
                                                             {annotationTool && <div className="absolute inset-0 cursor-crosshair z-20" onClick={(e) => { const containerRef = { current: e.currentTarget.parentElement }; addAnnotation(index, annotationTool, e.clientX, e.clientY, containerRef); }} />}
                                                         </div>
+
+                                                        {/* テキストオーバーレイ（印刷時に表示、編集時は半透明で表示） */}
+                                                        {step.text && step.text.replace(/<[^>]*>/g, '').trim() && (
+                                                            <div className="step-text-overlay absolute bottom-0 left-0 right-0 z-30 pointer-events-none" style={{ background: 'rgba(255, 220, 0, 0.88)', padding: '6px 10px', minHeight: '36px', maxHeight: '40%', overflow: 'hidden' }}>
+                                                                <div className="text-xs font-medium text-gray-900 leading-snug" style={{ fontSize: '11px' }} dangerouslySetInnerHTML={{ __html: step.text }} />
+                                                            </div>
+                                                        )}
                                                     </div>
 
-                                                    <div className="step-text-container" style={{ width: '330px', flexShrink: 0 }}>
+                                                    {/* テキスト編集エリア（編集時のみ表示、印刷時非表示） */}
+                                                    <div className="step-text-editor-area print-hidden px-3 pb-3 pt-2" onClick={(e) => e.stopPropagation()}>
                                                         <RichTextEditor
                                                             value={step.text}
                                                             onChange={(html) => handleTextChange(index, html)}
-                                                            placeholder="作業の手順やポイントを入力..."
-                                                            style={{ width: '330px', height: '255.13px' }}
+                                                            placeholder="作業の手順やポイントを入力... （画像下部の黄色エリアに表示されます）"
+                                                            style={{ width: '100%', height: printLayout === '2per' ? '120px' : '90px' }}
                                                         />
                                                     </div>
 
