@@ -71,17 +71,28 @@
             .space-y-6 {
                 margin: 0 !important;
                 padding: 0 !important;
+                gap: 0 !important;
             }
             .space-y-6 > * + * {
                 margin-top: 0 !important;
             }
 
-            /* 1ページに2セット: 画像(16/7)+テキスト(30mm)で自然に収まる */
+            /* ラッパーdivの余白をすべて除去 */
+            .my-8 { margin-top: 0 !important; margin-bottom: 0 !important; }
+            .p-4 { padding: 0 !important; }
+            .mb-6 { margin-bottom: 0 !important; }
+            .pb-2 { padding-bottom: 0 !important; }
+            .mx-auto { margin-left: 0 !important; margin-right: 0 !important; }
+            .max-w-2xl { max-width: none !important; }
+
+            /* 1ページに2セット固定: 123mm × 2 = 246mm ≈ A4印刷可能域(247mm) */
             .step-item {
                 break-inside: avoid !important;
                 page-break-inside: avoid !important;
                 display: flex !important;
                 flex-direction: column !important;
+                height: 123mm !important;
+                max-height: 123mm !important;
                 overflow: hidden !important;
                 margin: 0 !important;
                 padding: 0 !important;
@@ -91,12 +102,10 @@
                 box-sizing: border-box !important;
             }
 
-            /* 画像: 編集時と同じアスペクト比(16/7)で固定 → SVG座標系と一致 */
+            /* 画像: step-item固定高さの残りを占有。aspect-ratioはSVG座標系一致のため */
             .step-image-wrapper {
-                aspect-ratio: 16 / 7 !important;
-                flex: none !important;
+                flex: 1 !important;
                 width: 100% !important;
-                height: auto !important;
                 overflow: hidden !important;
                 position: relative !important;
             }
@@ -120,6 +129,7 @@
                 height: 30mm !important;
                 overflow: hidden !important;
                 padding: 2mm 3mm !important;
+                margin: 0 !important;
                 border-top: 1px solid #ddd !important;
                 font-size: 9pt !important;
                 line-height: 1.5 !important;
