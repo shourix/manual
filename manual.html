@@ -27,10 +27,9 @@
 
         /* --- 印刷用スタイル --- */
         @media print {
-            /* ページ設定: A4サイズ、余白なし（ブラウザの「なし」「最小」に最適化） */
             @page {
                 size: A4 portrait;
-                margin: 0;
+                margin: 10mm 8mm;
             }
 
             body, html {
@@ -40,7 +39,7 @@
                 margin: 0 !important;
                 padding: 0 !important;
             }
-            
+
             .print-hidden { display: none !important; }
             .print-block { display: block !important; }
 
@@ -52,7 +51,6 @@
                 margin: 0 !important;
             }
 
-            /* メインフレックスコンテナを印刷用にリセット */
             .flex-1.flex.overflow-hidden {
                 display: block !important;
                 overflow: visible !important;
@@ -69,39 +67,40 @@
                 min-height: 0 !important;
                 background-image: none !important;
             }
-            
-            /* ステップ間隔の統一 */
+
             .space-y-6 {
                 margin: 0 !important;
                 padding: 0 !important;
             }
             .space-y-6 > * + * {
-                margin-top: 8px !important;
+                margin-top: 0 !important;
             }
 
+            /* 1ページに2セット固定: 印刷可能領域277mm ÷ 2 = 138mm */
             .step-item {
-                break-inside: avoid;
-                page-break-inside: avoid;
-                border: 1px solid #ddd !important;
-                margin: 0 0 1mm 0 !important;
-                padding: 0 !important;
-                height: auto !important;
-                max-height: none !important;
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+                display: flex !important;
+                flex-direction: column !important;
+                height: 138mm !important;
+                max-height: 138mm !important;
                 overflow: hidden !important;
-                display: block !important;
-                position: relative !important;
-                page-break-after: auto;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: 1px solid #ccc !important;
                 border-radius: 0 !important;
                 box-shadow: none !important;
                 box-sizing: border-box !important;
             }
 
-            /* 印刷時: 画像コンテナのサイズはaspect-ratioで制御（動的CSSで上書き） */
+            /* 画像: 残り高さをすべて占有 */
             .step-image-wrapper {
+                flex: 1 !important;
+                overflow: hidden !important;
+                position: relative !important;
                 width: 100% !important;
                 height: auto !important;
-                aspect-ratio: 16/7 !important;
-                position: relative !important;
+                aspect-ratio: unset !important;
             }
 
             .step-image-mask {
@@ -117,47 +116,48 @@
                 height: 100% !important;
             }
 
-            /* 印刷時: テキストは画像下部にオーバーレイ */
-            .step-text-overlay {
-                position: absolute !important;
-                bottom: 0 !important;
-                left: 0 !important;
-                right: 0 !important;
-                background: rgba(255, 220, 0, 0.92) !important;
-                padding: 1.5mm 2mm !important;
-                min-height: 18mm !important;
-                max-height: 35% !important;
+            /* テキストエリア: 固定高さ */
+            .step-text-area {
+                flex-shrink: 0 !important;
+                height: 30mm !important;
                 overflow: hidden !important;
+                padding: 2mm 3mm !important;
+                border-top: 1px solid #ddd !important;
+                font-size: 9pt !important;
+                line-height: 1.5 !important;
                 box-sizing: border-box !important;
-                display: block !important;
+                background: white !important;
             }
 
-            /* 印刷時: テキスト編集エリアは非表示 */
+            /* テキスト編集UIは印刷時非表示 */
             .step-text-editor-area {
                 display: none !important;
             }
 
-            /* リッチテキストエディタの印刷時スタイル */
+            /* テキストオーバーレイは印刷時非表示 */
+            .step-text-overlay {
+                display: none !important;
+            }
+
             .rich-text-editor {
                 background: transparent !important;
                 border: none !important;
                 box-shadow: none !important;
                 padding: 0 !important;
                 font-size: 9pt !important;
-                line-height: 1.4 !important;
+                line-height: 1.5 !important;
                 color: #1a1a1a !important;
                 word-wrap: break-word !important;
                 word-break: break-word !important;
                 height: auto !important;
                 overflow: visible !important;
             }
-            
+
             .lg\:col-span-8 {
                 width: 100% !important;
                 grid-column: span 12 / span 12 !important;
             }
 
-            /* h-full等のフルハイト指定を解除 */
             .h-full {
                 height: auto !important;
             }
@@ -273,8 +273,6 @@
             const [fileName, setFileName] = useState("");
             const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-            const [printLayout, setPrintLayout] = useState('4per');
-
             const [dragState, setDragState] = useState({ isDragging: false, stepIndex: null, startX: 0, startY: 0, initialImgX: 0, initialImgY: 0 });
             const [splitDragState, setSplitDragState] = useState({ isDragging: false, stepIndex: null, startX: 0, startY: 0, containerWidth: 0, initialRatio: 0.5 });
 
@@ -307,22 +305,6 @@
                 return () => window.removeEventListener('beforeunload', handleBeforeUnload);
             }, [hasUnsavedChanges, steps]);
 
-            // 印刷レイアウト切替: 動的にstyleタグを差し替え
-            useEffect(() => {
-                const id = 'print-layout-style';
-                let el = document.getElementById(id);
-                if (!el) {
-                    el = document.createElement('style');
-                    el.id = id;
-                    document.head.appendChild(el);
-                }
-                if (printLayout === '2per') {
-                    el.textContent = `@media print { .step-image-wrapper { aspect-ratio: 16/9 !important; } }`;
-                } else {
-                    el.textContent = `@media print { .step-image-wrapper { aspect-ratio: 16/7 !important; } }`;
-                }
-            }, [printLayout]);
-
             // SVGコンテナサイズをリアルタイムで追跡
             useEffect(() => {
                 const ros = [];
@@ -341,7 +323,7 @@
                     ros.push(ro);
                 });
                 return () => ros.forEach(ro => ro.disconnect());
-            }, [steps.length, printLayout]);
+            }, [steps.length]);
 
             // --- 画像ドラッグ ---
             const handleImageMouseDown = (index, e) => {
@@ -922,19 +904,6 @@
                                 <button onClick={() => jsonInputRef.current?.click()} className="flex items-center gap-1 px-3 py-1.5 bg-white text-gray-700 rounded text-sm hover:bg-gray-50"><Upload className="w-4 h-4" /> 読込</button>
                                 <input type="file" accept=".json" ref={jsonInputRef} className="hidden" onChange={loadData} />
                             </div>
-                            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 text-xs font-medium">
-                                <span className="text-gray-500 px-1">レイアウト:</span>
-                                <button
-                                    onClick={() => setPrintLayout('4per')}
-                                    className={`px-3 py-1.5 rounded transition-colors ${printLayout === '4per' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
-                                    title="4段／ページ（小さめ）"
-                                >4段</button>
-                                <button
-                                    onClick={() => setPrintLayout('2per')}
-                                    className={`px-3 py-1.5 rounded transition-colors ${printLayout === '2per' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
-                                    title="2段／ページ（大きめ）"
-                                >2段</button>
-                            </div>
                             <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm shadow-md"><Printer className="w-4 h-4" /> 印刷 / PDF</button>
                         </div>
                     </header>
@@ -1034,7 +1003,7 @@
                                                 <div key={step.id} data-step-index={index} className={`group relative rounded-xl border transition-all bg-white step-item ${activeStepIndex === index ? 'border-indigo-500 shadow-lg' : selectedSteps.has(index) ? 'border-blue-400 shadow-md bg-blue-50' : 'border-gray-300 hover:border-indigo-300'}`} onClick={() => setActiveStepIndex(index)}>
 
                                                     {/* 画像全面 + オーバーレイテキスト */}
-                                                    <div className="step-image-wrapper relative" style={{ width: '100%', aspectRatio: printLayout === '2per' ? '16/9' : '16/7' }}>
+                                                    <div className="step-image-wrapper relative" style={{ width: '100%', aspectRatio: '16/7' }}>
                                                         <div className="step-image-mask relative cursor-move bg-gray-50" style={{ overflow: 'hidden', width: '100%', height: '100%' }} ref={(el) => { maskRefs.current[index] = el; }} onMouseDown={(e) => handleImageMouseDown(index, e)}>
                                                             <div className="relative w-full h-full flex items-center justify-center" style={{overflow: 'visible'}}>
                                                                 <img src={step.image} className="max-w-none transition-transform duration-75 ease-out select-none pointer-events-none" style={{ transform: `translate(${step.x || 0}px, ${step.y || 0}px) scale(${step.scale || 1})`, width: '100%', height: '100%', objectFit: 'cover' }} draggable="false" />
@@ -1212,12 +1181,11 @@
                                                             {annotationTool && <div className="absolute inset-0 cursor-crosshair z-20" onClick={(e) => { const containerRef = { current: e.currentTarget.parentElement }; addAnnotation(index, annotationTool, e.clientX, e.clientY, containerRef); }} />}
                                                         </div>
 
-                                                        {/* テキストオーバーレイ（印刷時に表示、編集時は半透明で表示） */}
-                                                        {step.text && step.text.replace(/<[^>]*>/g, '').trim() && (
-                                                            <div className="step-text-overlay absolute bottom-0 left-0 right-0 z-30 pointer-events-none" style={{ background: 'rgba(255, 220, 0, 0.88)', padding: '6px 10px', minHeight: '36px', maxHeight: '40%', overflow: 'hidden' }}>
-                                                                <div className="text-xs font-medium text-gray-900 leading-snug" style={{ fontSize: '11px' }} dangerouslySetInnerHTML={{ __html: step.text }} />
-                                                            </div>
-                                                        )}
+                                                    </div>
+
+                                                    {/* 印刷用テキストエリア（印刷時のみ表示） */}
+                                                    <div className="step-text-area print-block hidden">
+                                                        <div dangerouslySetInnerHTML={{ __html: step.text || '' }} />
                                                     </div>
 
                                                     {/* テキスト編集エリア（編集時のみ表示、印刷時非表示） */}
@@ -1225,8 +1193,8 @@
                                                         <RichTextEditor
                                                             value={step.text}
                                                             onChange={(html) => handleTextChange(index, html)}
-                                                            placeholder="作業の手順やポイントを入力... （画像下部の黄色エリアに表示されます）"
-                                                            style={{ width: '100%', height: printLayout === '2per' ? '120px' : '90px' }}
+                                                            placeholder="作業の手順やポイントを入力..."
+                                                            style={{ width: '100%', height: '90px' }}
                                                         />
                                                     </div>
 
