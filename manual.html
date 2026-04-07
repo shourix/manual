@@ -85,8 +85,8 @@
                 border: 1px solid #ddd !important;
                 margin: 0 0 1mm 0 !important;
                 padding: 0 !important;
-                height: 73mm !important;
-                max-height: 73mm !important;
+                height: auto !important;
+                max-height: none !important;
                 overflow: hidden !important;
                 display: block !important;
                 position: relative !important;
@@ -96,10 +96,11 @@
                 box-sizing: border-box !important;
             }
 
-            /* 印刷時: 画像コンテナが全面 */
+            /* 印刷時: 画像コンテナのサイズはaspect-ratioで制御（動的CSSで上書き） */
             .step-image-wrapper {
                 width: 100% !important;
-                height: 100% !important;
+                height: auto !important;
+                aspect-ratio: 16/7 !important;
                 position: relative !important;
             }
 
@@ -311,9 +312,9 @@
                     document.head.appendChild(el);
                 }
                 if (printLayout === '2per') {
-                    el.textContent = `@media print { .step-item { height: 136mm !important; max-height: 136mm !important; } }`;
+                    el.textContent = `@media print { .step-image-wrapper { aspect-ratio: 16/9 !important; } }`;
                 } else {
-                    el.textContent = `@media print { .step-item { height: 73mm !important; max-height: 73mm !important; } }`;
+                    el.textContent = `@media print { .step-image-wrapper { aspect-ratio: 16/7 !important; } }`;
                 }
             }, [printLayout]);
 
@@ -982,7 +983,7 @@
                                                 <div key={step.id} data-step-index={index} className={`group relative rounded-xl border transition-all bg-white step-item ${activeStepIndex === index ? 'border-indigo-500 shadow-lg' : selectedSteps.has(index) ? 'border-blue-400 shadow-md bg-blue-50' : 'border-gray-300 hover:border-indigo-300'}`} onClick={() => setActiveStepIndex(index)}>
 
                                                     {/* 画像全面 + オーバーレイテキスト */}
-                                                    <div className="step-image-wrapper relative" style={{ width: '100%', height: printLayout === '2per' ? '500px' : '280px' }}>
+                                                    <div className="step-image-wrapper relative" style={{ width: '100%', aspectRatio: printLayout === '2per' ? '16/9' : '16/7' }}>
                                                         <div className="step-image-mask relative cursor-move bg-gray-50" style={{ overflow: 'hidden', width: '100%', height: '100%' }} onMouseDown={(e) => handleImageMouseDown(index, e)}>
                                                             <div className="relative w-full h-full flex items-center justify-center" style={{overflow: 'visible'}}>
                                                                 <img src={step.image} className="max-w-none transition-transform duration-75 ease-out select-none pointer-events-none" style={{ transform: `translate(${step.x || 0}px, ${step.y || 0}px) scale(${step.scale || 1})`, width: '100%', height: '100%', objectFit: 'cover' }} draggable="false" />
