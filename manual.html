@@ -395,8 +395,8 @@
 
                 const deltaXPx = e.clientX - startX;
                 const deltaYPx = e.clientY - startY;
-                const deltaX = (deltaXPx / rect.width) * 100;
-                const deltaY = (deltaYPx / rect.height) * 100;
+                const deltaX = (deltaXPx / rect.width) * 160;
+                const deltaY = (deltaYPx / rect.height) * 90;
 
                 setSteps(prev => {
                     const next = [...prev];
@@ -478,13 +478,12 @@
                 if (!annotationTool || !containerRef.current) return;
                 const container = containerRef.current;
                 const rect = container.getBoundingClientRect();
-                const relativeX = ((x - rect.left) / rect.width) * 100;
-                const relativeY = ((y - rect.top) / rect.height) * 100;
+                const relativeX = ((x - rect.left) / rect.width) * 160;
+                const relativeY = ((y - rect.top) / rect.height) * 90;
 
-                // 円の初期サイズ計算 (見た目上の正円、%基準)
-                const aspect = rect.width / rect.height;
-                const initialRx = 10;          // 横幅の10%
-                const initialRy = 10 * aspect; // 縦幅の10% * アスペクト比
+                // 円の初期サイズ計算 (viewBox 160x90基準、見た目上の正円)
+                const initialRx = 10;     // 160の約6%
+                const initialRy = 5.625;  // 90の約6%（見た目上の正円）
 
                 // 番号スタンプの場合、既存の最大番号+1を自動設定
                 let nextNumber = 1;
@@ -515,6 +514,7 @@
                     // 番号スタンプ用
                     number: type === 'number-stamp' ? nextNumber : undefined,
                     stampSize: type === 'number-stamp' ? 9 : undefined, // 旧6の1.5倍
+                    coordVersion: 2, // viewBox 160x90 座標系
                 };
                 setSteps(prev => {
                     const newSteps = [...prev];
@@ -833,7 +833,7 @@
                 annotations: (step.annotations || []).map(a => {
                     // 旧データ(size)があればrx,ryに変換する簡易ロジック
                     const baseSize = (a.size || 1.0) * 5;
-                    return {
+                    const fixed = {
                         ...a,
                         rx: a.rx || baseSize,
                         ry: a.ry || baseSize,
@@ -848,6 +848,15 @@
                         number: a.type === 'number-stamp' ? (a.number || 1) : a.number,
                         stampSize: a.type === 'number-stamp' ? (a.stampSize || 6) : a.stampSize,
                     };
+                    // 旧座標系(viewBox 0 0 100 100) → 新座標系(viewBox 0 0 160 90)に変換
+                    if (!fixed.coordVersion || fixed.coordVersion < 2) {
+                        fixed.x = (fixed.x / 100) * 160;
+                        fixed.y = (fixed.y / 100) * 90;
+                        if (fixed.rx) fixed.rx = (fixed.rx / 100) * 160;
+                        if (fixed.ry) fixed.ry = (fixed.ry / 100) * 90;
+                        fixed.coordVersion = 2;
+                    }
+                    return fixed;
                 })
             });
 
@@ -968,7 +977,7 @@
                                                             <div className="relative w-full h-full flex items-center justify-center" style={{overflow: 'visible'}}>
                                                                 <img src={step.image} className="max-w-none transition-transform duration-75 ease-out select-none pointer-events-none" style={{ transform: `translate(${step.x || 0}px, ${step.y || 0}px) scale(${step.scale || 1})`, width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
                                                                 <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded font-mono z-10 pointer-events-none shadow-sm">Step {index + 1}</div>
-                                                                <svg className="absolute w-full h-full pointer-events-none z-20" style={{ pointerEvents: annotationTool || selectedAnnotation ? 'auto' : 'none', overflow: 'hidden', top: 0, left: 0 }} viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                                <svg className="absolute w-full h-full pointer-events-none z-20" style={{ pointerEvents: annotationTool || selectedAnnotation ? 'auto' : 'none', overflow: 'hidden', top: 0, left: 0 }} viewBox="0 0 160 90" preserveAspectRatio="none">
                                                                     <defs>
                                                                         <filter id="text-glow" x="-50%" y="-50%" width="200%" height="200%">
                                                                             <feGaussianBlur in="SourceAlpha" stdDeviation="0.5" result="blur"/>
