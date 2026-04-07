@@ -76,14 +76,12 @@
                 margin-top: 0 !important;
             }
 
-            /* 1ページに2セット固定: 印刷可能領域277mm ÷ 2 = 138mm */
+            /* 1ページに2セット: 画像(16/7)+テキスト(30mm)で自然に収まる */
             .step-item {
                 break-inside: avoid !important;
                 page-break-inside: avoid !important;
                 display: flex !important;
                 flex-direction: column !important;
-                height: 138mm !important;
-                max-height: 138mm !important;
                 overflow: hidden !important;
                 margin: 0 !important;
                 padding: 0 !important;
@@ -93,14 +91,14 @@
                 box-sizing: border-box !important;
             }
 
-            /* 画像: 残り高さをすべて占有 */
+            /* 画像: 編集時と同じアスペクト比(16/7)で固定 → SVG座標系と一致 */
             .step-image-wrapper {
-                flex: 1 !important;
-                overflow: hidden !important;
-                position: relative !important;
+                aspect-ratio: 16 / 7 !important;
+                flex: none !important;
                 width: 100% !important;
                 height: auto !important;
-                aspect-ratio: unset !important;
+                overflow: hidden !important;
+                position: relative !important;
             }
 
             .step-image-mask {
@@ -285,7 +283,6 @@
             const [deleteConfirm, setDeleteConfirm] = useState({ show: false, index: null });
 
             const maskRefs = useRef({});
-            const [svgDims, setSvgDims] = useState({});
 
             const videoRef = useRef(null);
             const canvasRef = useRef(null);
@@ -305,25 +302,6 @@
                 return () => window.removeEventListener('beforeunload', handleBeforeUnload);
             }, [hasUnsavedChanges, steps]);
 
-            // SVGコンテナサイズをリアルタイムで追跡
-            useEffect(() => {
-                const ros = [];
-                steps.forEach((_, i) => {
-                    const el = maskRefs.current[i];
-                    if (!el) return;
-                    const ro = new ResizeObserver(() => {
-                        const w = el.offsetWidth;
-                        const h = el.offsetHeight;
-                        setSvgDims(prev => {
-                            if (prev[i]?.w === w && prev[i]?.h === h) return prev;
-                            return { ...prev, [i]: { w, h } };
-                        });
-                    });
-                    ro.observe(el);
-                    ros.push(ro);
-                });
-                return () => ros.forEach(ro => ro.disconnect());
-            }, [steps.length]);
 
             // --- 画像ドラッグ ---
             const handleImageMouseDown = (index, e) => {
@@ -394,7 +372,6 @@
                     startX: e.clientX,
                     startY: e.clientY,
                     rect: rect,
-                    coordVersion: ann.coordVersion || 1,
                     initialAnn: JSON.parse(JSON.stringify(ann))
                 });
             };
@@ -402,12 +379,12 @@
             const handleHandleMouseMove = (e) => {
                 if (!handleDragState || !handleDragState.isDragging) return;
                 e.preventDefault();
-                const { type, stepIndex, annotationId, startX, startY, rect, coordVersion, initialAnn } = handleDragState;
+                const { type, stepIndex, annotationId, startX, startY, rect, initialAnn } = handleDragState;
 
                 const deltaXPx = e.clientX - startX;
                 const deltaYPx = e.clientY - startY;
-                const deltaX = coordVersion === 2 ? deltaXPx : (deltaXPx / rect.width) * 100;
-                const deltaY = coordVersion === 2 ? deltaYPx : (deltaYPx / rect.height) * 100;
+                const deltaX = (deltaXPx / rect.width) * 100;
+                const deltaY = (deltaYPx / rect.height) * 100;
 
                 setSteps(prev => {
                     const next = [...prev];
@@ -418,24 +395,14 @@
                          ann.x = initialAnn.x + deltaX;
                          ann.y = initialAnn.y + deltaY;
                     } else if (type === 'resize-circle-w') {
-                        // 横幅変更 (rx)
-                        ann.rx = Math.max(coordVersion === 2 ? rect.width * 0.005 : 1, initialAnn.rx + (deltaX / 2));
+                        ann.rx = Math.max(1, initialAnn.rx + (deltaX / 2));
                     } else if (type === 'resize-circle-h') {
-                        // 縦幅変更 (ry)
-                        ann.ry = Math.max(coordVersion === 2 ? rect.height * 0.005 : 1, initialAnn.ry + (deltaY / 2));
+                        ann.ry = Math.max(1, initialAnn.ry + (deltaY / 2));
                     } else if (type === 'resize-text-label') {
-                        // テキストラベルのフォントサイズ変更
-                        ann.fontSize = Math.max(
-                            coordVersion === 2 ? rect.height * 0.01 : 1,
-                            Math.min(coordVersion === 2 ? rect.height * 0.3 : 30, initialAnn.fontSize + (deltaY / 10))
-                        );
+                        ann.fontSize = Math.max(1, Math.min(30, initialAnn.fontSize + (deltaY / 10)));
                     } else if (type === 'resize-number-stamp') {
-                        // 番号スタンプのサイズ変更
                         const avgDelta = (deltaX + deltaY) / 2;
-                        ann.stampSize = Math.max(
-                            coordVersion === 2 ? rect.width * 0.01 : 2,
-                            Math.min(coordVersion === 2 ? rect.width * 0.2 : 15, initialAnn.stampSize + (avgDelta / 10))
-                        );
+                        ann.stampSize = Math.max(2, Math.min(15, initialAnn.stampSize + (avgDelta / 10)));
                     } else if (type === 'arrow-start' || type === 'arrow-end') {
                         const rad = initialAnn.rotation * Math.PI / 180;
                         const halfLen = initialAnn.length / 2;
@@ -494,32 +461,18 @@
                 };
             }, [dragState, splitDragState, handleDragState]);
 
-            // v1アノテーション(0-100正方形座標)をv2(px座標)に変換
-            const convertAnnV1toV2 = (ann, containerW, containerH) => ({
-                ...ann,
-                x: ann.x / 100 * containerW,
-                y: ann.y / 100 * containerH,
-                rx: (ann.rx || 5) / 100 * containerW,
-                ry: (ann.ry || 5) / 100 * containerH,
-                length: (ann.length || 16) / 100 * Math.min(containerW, containerH),
-                fontSize: ann.fontSize != null ? ann.fontSize / 100 * containerH : undefined,
-                stampSize: ann.stampSize != null ? ann.stampSize / 100 * Math.min(containerW, containerH) : undefined,
-                coordVersion: 2,
-            });
-
             // 注釈追加
             const addAnnotation = (stepIndex, type, x, y, containerRef) => {
                 if (!annotationTool || !containerRef.current) return;
                 const container = containerRef.current;
                 const rect = container.getBoundingClientRect();
-                const containerW = rect.width;
-                const containerH = rect.height;
-                const relativeX = x - rect.left;
-                const relativeY = y - rect.top;
+                const relativeX = ((x - rect.left) / rect.width) * 100;
+                const relativeY = ((y - rect.top) / rect.height) * 100;
 
-                // 円の初期サイズ計算 (px、見た目上の正円)
-                const initialRx = containerW * 0.05;
-                const initialRy = containerH * 0.05;
+                // 円の初期サイズ計算 (見た目上の正円、%基準)
+                const aspect = rect.width / rect.height;
+                const initialRx = 10;          // 横幅の10%
+                const initialRy = 10 * aspect; // 縦幅の10% * アスペクト比
 
                 // 番号スタンプの場合、既存の最大番号+1を自動設定
                 let nextNumber = 1;
@@ -541,24 +494,19 @@
                     ry: initialRy, // 縦半径
                     size: 1.0, // 後方互換用(使わない)
                     rotation: 0,
-                    length: Math.min(containerW, containerH) * 0.16,
-                    strokeWidth: 2,
+                    length: 24,       // 矢印長さ (旧16の1.5倍)
+                    strokeWidth: 4,   // 線幅 (旧2の2倍)
                     // テキストラベル用
                     text: type === 'text-label' ? 'テキスト' : undefined,
-                    fontSize: type === 'text-label' ? containerH * 0.06 : undefined,
+                    fontSize: type === 'text-label' ? 21 : undefined,   // 旧14の1.5倍
                     color: type === 'text-label' ? 'white' : undefined,
                     // 番号スタンプ用
                     number: type === 'number-stamp' ? nextNumber : undefined,
-                    stampSize: type === 'number-stamp' ? Math.min(containerW, containerH) * 0.06 : undefined,
-                    coordVersion: 2,
+                    stampSize: type === 'number-stamp' ? 9 : undefined, // 旧6の1.5倍
                 };
                 setSteps(prev => {
                     const newSteps = [...prev];
                     if (!newSteps[stepIndex].annotations) newSteps[stepIndex].annotations = [];
-                    // v1アノテーションをv2に変換
-                    newSteps[stepIndex].annotations = newSteps[stepIndex].annotations.map(a =>
-                        a.coordVersion === 2 ? a : convertAnnV1toV2(a, containerW, containerH)
-                    );
                     newSteps[stepIndex].annotations.push(newAnnotation);
                     return newSteps;
                 });
@@ -1006,10 +954,9 @@
                                                     <div className="step-image-wrapper relative" style={{ width: '100%', aspectRatio: '16/7' }}>
                                                         <div className="step-image-mask relative cursor-move bg-gray-50" style={{ overflow: 'hidden', width: '100%', height: '100%' }} ref={(el) => { maskRefs.current[index] = el; }} onMouseDown={(e) => handleImageMouseDown(index, e)}>
                                                             <div className="relative w-full h-full flex items-center justify-center" style={{overflow: 'visible'}}>
-                                                                <img src={step.image} className="max-w-none transition-transform duration-75 ease-out select-none pointer-events-none" style={{ transform: `translate(${step.x || 0}px, ${step.y || 0}px) scale(${step.scale || 1})`, width: '100%', height: '100%', objectFit: 'cover' }} draggable="false" />
+                                                                <img src={step.image} className="max-w-none transition-transform duration-75 ease-out select-none pointer-events-none" style={{ transform: `translate(${step.x || 0}px, ${step.y || 0}px) scale(${step.scale || 1})`, width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
                                                                 <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded font-mono z-10 pointer-events-none shadow-sm">Step {index + 1}</div>
-                                                                {(() => { const stepAnns = step.annotations || []; const isV2 = stepAnns.length === 0 || stepAnns.some(a => a.coordVersion === 2); const svgViewBox = isV2 ? `0 0 ${svgDims[index]?.w || 1600} ${svgDims[index]?.h || 700}` : "0 0 100 100"; return (
-                                                                <svg className="absolute w-full h-full pointer-events-none z-20" style={{ pointerEvents: annotationTool || selectedAnnotation ? 'auto' : 'none', overflow: 'hidden', top: 0, left: 0 }} viewBox={svgViewBox} preserveAspectRatio="none">
+                                                                <svg className="absolute w-full h-full pointer-events-none z-20" style={{ pointerEvents: annotationTool || selectedAnnotation ? 'auto' : 'none', overflow: 'hidden', top: 0, left: 0 }} viewBox="0 0 100 100" preserveAspectRatio="none">
                                                                     <defs>
                                                                         <filter id="text-glow" x="-50%" y="-50%" width="200%" height="200%">
                                                                             <feGaussianBlur in="SourceAlpha" stdDeviation="0.5" result="blur"/>
@@ -1176,7 +1123,6 @@
                                                                         );
                                                                     })}
                                                                 </svg>
-                                                                ); })()}
                                                             </div>
                                                             {annotationTool && <div className="absolute inset-0 cursor-crosshair z-20" onClick={(e) => { const containerRef = { current: e.currentTarget.parentElement }; addAnnotation(index, annotationTool, e.clientX, e.clientY, containerRef); }} />}
                                                         </div>
